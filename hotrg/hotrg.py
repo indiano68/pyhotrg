@@ -6,8 +6,7 @@ from hotrg_tools.matrix import truncate_matrix
 
 
 class General_Node:
-    # original_node = np.ndarray()
-    # courrent_node = np.ndarray()
+    
     transformation_log =  ""
     factor = 1
 
@@ -209,8 +208,8 @@ class Cross_Node(General_Node):
             self.truncate('y',dimesion)
 
 
-"""Class implementation for HOTRG sweep"""
 class HOTRG_sweep:
+    """Class implementation for HOTRG sweep"""
 
     def __init__(self,node,sweep_range,steps,dimension,output_path=""):
         self.node = node
