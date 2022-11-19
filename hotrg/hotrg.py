@@ -69,7 +69,7 @@ class General_Node:
     def factorize(self):
         pass
 
-    def factor_update(self):
+    def factor_update(self,times):
         pass
 
     def factor_compute(self):
@@ -163,12 +163,10 @@ class Cross_Node(General_Node):
         else:
             raise Exception("direction must be string")
 
-
     def trace(self):
 
         trace=ncon([self.courrent_node],[[1,1,2,2]]) 
         return trace 
-
 
     def factorize(self):
         # Prototype for testing 
@@ -189,9 +187,6 @@ class Cross_Node(General_Node):
             self.factor*=2
         self.transformation_log+=f"Factor Updated, New: {self.factor}\n"       
     
-    # def factor_compute(self):
-    #     return sum(self.factor)
-
     def directonal_reshape(self,direction):
         """Reshape after self cotraction"""
         """assumes xx x'x' yy'"""
@@ -239,7 +234,6 @@ class Cross_Node(General_Node):
 
             raise Exception("direction must be string,'x' or 'y'")
 
-
     def step(self, number_of_steps,dimesion):
         for i in range(0,number_of_steps):
             self.self_contract([-1,-3,-5,1],[-2,-4,1,-6])
@@ -250,6 +244,71 @@ class Cross_Node(General_Node):
             self.directonal_reshape('y')
             self.factorize()
             self.truncate('y',dimesion)
+
+class Square_Node(General_Node):
+    def truncate(self,direction_idx,dimension):
+        if self.courrent_node.shape[direction_idx[0]]>dimension and self.courrent_node.shape[direction_idx[0]] == self.courrent_node.shape[direction_idx[1]]:
+            unfolded_buffer = np.matrix(tl.unfold(self.courrent_node, direction_idx[0]))
+            unfolded_buffer = unfolded_buffer @ unfolded_buffer.getH()
+            U0, delta0, _ = np.linalg.svd(unfolded_buffer)
+
+            del unfolded_buffer
+
+            unfolded_buffer = unfolded_buffer = np.matrix(tl.unfold(self.courrent_node, direction_idx[1]))
+            unfolded_buffer = unfolded_buffer @ unfolded_buffer.getH()
+            U1, delta1, _ = np.linalg.svd(unfolded_buffer)
+
+            del unfolded_buffer
+
+            eps0, eps1 = 0, 0
+
+            for i in range(dimension, len(delta0)):
+                eps0 += delta0[i]
+                eps1 += delta1[i]
+            del delta0, delta1
+            if eps0 < eps1:
+                del U1
+                Utr = np.array(truncate_matrix(U0, 1, dimension))
+                del U0
+            else:
+                del U0
+                Utr = np.array(truncate_matrix(U1, 1, dimension))
+                del U1
+
+            contr_pattern  = [val *-1 for val in list(range(1,len(self.courrent_node.shape)+1))]
+            contr_pattern[direction_idx[0]]*=-1
+            contr_pattern[direction_idx[1]]*=-1            
+            self.courrent_node = ncon([Utr, Utr, self.courrent_node], [
+                [direction_idx[0]+1, -(direction_idx[0]+1)], [direction_idx[1]+1, -(direction_idx[1]+1)], contr_pattern])
+        return self.courrent_node
+
+
+    def directional_reshape(self,direction):
+        shape = self.courrent_node.shape
+        if(direction == 'x'):
+            self.reshape((shape[0]**2,shape[2]**2,shape[4]**2,shape[6]**2\
+                        ,shape[8] ,shape[9],shape[10],shape[11]))
+        if (direction == 'y'):
+            self.reshape((shape[0],shape[1],shape[2],shape[3]\
+                        ,shape[4]**2 ,shape[6]**2,shape[8]**2,shape[10]**2))
+        return self.courrent_node
+
+    def trace(self):
+        trace = ncon([self.courrent_node],[[1,2,1,2,3,4,3,4]])
+        return trace
+    
+    def step(self, number_of_steps, dimesion):
+        for i in range(0,number_of_steps):
+            self.self_contract([-1,-3,-5,-7,-9,-10,1,2],[-2,-4,-6,-8,1,2,-11,-12])
+            self.directional_reshape('x')
+            self.truncate((0,2),dimesion)
+            self.truncate((1,3),dimesion)
+            self.self_contract([-1,-2,1,2,-5,-7,-9,-11],[1,2,-3,-4,-6,-8,-10,-12])
+            self.directional_reshape('y')
+            self.truncate((4,6),dimesion)
+            self.truncate((5,7),dimesion)
+
+
 
 
 class HOTRG_sweep:
