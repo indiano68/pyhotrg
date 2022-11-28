@@ -246,6 +246,7 @@ class Cross_Node(General_Node):
             self.truncate('y',dimesion)
 
 class Square_Node(General_Node):
+    '''Square Node'''
     def truncate(self,direction_idx,dimension):
         if self.courrent_node.shape[direction_idx[0]]>dimension and self.courrent_node.shape[direction_idx[0]] == self.courrent_node.shape[direction_idx[1]]:
             unfolded_buffer = np.matrix(tl.unfold(self.courrent_node, direction_idx[0]))
