@@ -2,7 +2,7 @@ import types
 import numpy as np 
 from ncon import ncon 
 import tensorly as tl
-from hotrg_tools.matrix import truncate_matrix
+from hotrg.hotrg_tools.matrix import truncate_matrix
 from time import perf_counter
 
 
