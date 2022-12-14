@@ -17,7 +17,6 @@ class General_Node:
         self.verbose = verbose 
         self.parameters = parameters 
         self.generate = generator 
-        self.original_node = self.generate(*self.parameters)
         self.courrent_node = self.generate(*self.parameters)
         self.transformation_log+=f"Node Generated with parameter\s {self.parameters} \n"
         pass
@@ -235,6 +234,9 @@ class Cross_Node(General_Node):
             raise Exception("direction must be string,'x' or 'y'")
 
     def step(self, number_of_steps,dimesion):
+        # Pre truncation adjustment
+        self.truncate('x',dimesion)
+        self.truncate('y',dimesion)
         for i in range(0,number_of_steps):
             self.self_contract([-1,-3,-5,1],[-2,-4,1,-6])
             self.directonal_reshape('x')
