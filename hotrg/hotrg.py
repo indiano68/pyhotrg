@@ -8,11 +8,11 @@ from time import perf_counter
 
 class General_Node:
     
-    transformation_log =  ""
-    factor = 0
-    unit_step = 1
 
     def __init__(self,name,generator,*parameters ,verbose = 0):
+        self.transformation_log =  ""
+        self.factor = 0
+        self.unit_step = 1
         self.name = name
         self.verbose = verbose 
         self.parameters = parameters 
@@ -316,10 +316,10 @@ class Square_Node(General_Node):
 
 class HOTRG_sweep:
     """Class implementation for HOTRG sweep"""
-    computed_names = list()
-    computed_functions = list() 
 
     def __init__(self,node,sweep_range,steps,dimension,output_path=""):
+        self.computed_names = list()
+        self.computed_functions = list() 
         self.node = node
         self.side = np.sqrt(self.node.unit_step**steps)
         self.sweep_range = sweep_range
@@ -329,6 +329,7 @@ class HOTRG_sweep:
             self.output_path = self.node.name + ".txt"
         else:
             self.output_path = output_path
+        pass
 
     def _log_header(self):
         header = ["Parameter","Trace","Factor(e)"] + self.computed_names
