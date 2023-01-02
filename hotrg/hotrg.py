@@ -368,6 +368,30 @@ class HOTRG_sweep:
             print(f"Step Duration:{perf_counter()-step_time}")
             self._log_data(val)
         print(f"Sweep Duration:{perf_counter()-sweep_time}")
+    
+    def calibrate(self,parameter,min_dim,max_dim,steps,output_dir):
+        filename = f"{self.node.name}_S{steps}_P{parameter}_calibration.txt"
+        header = f"Parameter: {parameter}\n" \
+                 f"Min D: {min_dim}\n" \
+                 f"Max D: {max_dim}\n" 
+        header += " ".join(["D"] + self.computed_names)
+        with open(output_dir+filename,"a") as handle:
+            handle.write(header+"\n")
+            handle.close()
+        for D in range(min_dim,max_dim+1):
+            self.node.renew(parameter)
+            step_time = perf_counter()
+            self.node.step(steps,D)
+            print(self.node.transformation_log)
+            print(f"Step Duration:{perf_counter()-step_time}\nD:{D}")
+            log_str =f"{D}"
+            for function in self.computed_functions:
+                log_str += f" {function(parameter,self.node.trace(),self.node.factor)}"
+            with open(output_dir+filename,"a") as handle:
+                handle.write(log_str+"\n")
+                handle.close()    
+
+
 
             
 
