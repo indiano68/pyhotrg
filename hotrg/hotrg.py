@@ -77,9 +77,6 @@ class General_Node:
     def trace(self):
         pass 
 
-
-
-
 class Cross_Node(General_Node):
     """Expand general node to allow Xie Type Step and Truncation"""
     """For nodes with for legs of equal order""" 
@@ -311,6 +308,94 @@ class Square_Node(General_Node):
             self.truncate((4,6),dimesion)
             self.truncate((5,7),dimesion)
 
+
+class Cross_Node_Optimized(Cross_Node):
+
+    def truncate(self, direction, dimension):
+        raise NotImplementedError
+    
+    def self_contract(self,order_1,order_2,update = False):
+
+        if type(order_1)==type(order_2) and  type(order_1) is list:
+
+            if len(order_1)==len(order_2) and len(order_1) == len(self.courrent_node.shape):
+
+                newNode = ncon([self.courrent_node,self.courrent_node],[order_1,order_2])
+                # Prototyping : New self contract does not update node
+                # for el in order_1:
+                #     if el>0: 
+                #         self.factor_update(1)
+                if update:
+                    self.courrent_node = newNode
+                    self.transformation_log+=f"Contraction with ordering {order_1} {order_2},new {self.courrent_node.shape}\n"
+                return newNode
+            else:
+                raise Exception("(Proto) Invalid lenght of order1/2.")
+
+        else:
+            raise Exception("(Proto) self_contract params must be lists")
+
+        
+    def step_truncate(self,direction,dimension):
+
+        if direction == 'x':
+            #just for testing lets keep it in one direction
+            tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
+            tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
+            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+            Qshape =  tensorQ.shape
+            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+            Ul, deltaL, _ = np.linalg.svd(tensorQ)
+
+            Utr = np.array(truncate_matrix(Ul, 1, dimension))
+            Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
+            tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
+            tensorC = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[1,-3,2,-5]])
+            newTensor = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
+            # self.courrent_node = ncon([Utr, Utr, self.courrent_node], [
+            #             [1, -3], [2, -4], [-1, -2, 1, 2]])
+            self.courrent_node = newTensor
+
+        if direction == 'y':
+
+            #Building Q for UL 
+            tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
+            tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
+            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+
+            #Finding Utr 
+            Qshape =  tensorQ.shape
+            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+            Ul, deltaL, _ = np.linalg.svd(tensorQ)
+            Utr = np.array(truncate_matrix(Ul, 1, dimension))
+            Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
+
+            #Recontructing T 
+            tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-1],[1,-4,-2,-3]])
+            tensorC  = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[2,-5,1,-3]])
+            newTensor = ncon([Utr,tensorC],[[1,2,-2],[-1,-3,-4,1,2]])          
+            self.courrent_node =newTensor
+
+        self.transformation_log+=f"Step/Truncation in direction {direction} and D{dimension},new {self.courrent_node.shape}\n"
+
+    def step(self, number_of_steps, dimension):
+        
+        # x direction
+
+        if(self.courrent_node.shape[2]**2<=dimension):
+            self.self_contract([-1,1,-3,-5],[1,-2,-4,-6],update=True)
+            self.directonal_reshape('y')
+        else:
+            self.step_truncate('x',dimension)
+            pass 
+
+        #y direction 
+
+        if(self.courrent_node.shape[0]**2<=dimension):
+            self.self_contract([-1,-3,-5,1],[-2,-4,1,-6],update=True)
+            self.directonal_reshape('y')
+        else:
+            self.step_truncate('y',dimension)
 
 
 
