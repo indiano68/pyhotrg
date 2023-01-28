@@ -379,23 +379,22 @@ class Cross_Node_Optimized(Cross_Node):
         self.transformation_log+=f"Step/Truncation in direction {direction} and D{dimension},new {self.courrent_node.shape}\n"
 
     def step(self, number_of_steps, dimension):
-        
-        # x direction
+        for step in range(0,number_of_steps):
+            # x direction
+            if(self.courrent_node.shape[2]**2<=dimension):
+                self.self_contract([-1,1,-3,-5],[1,-2,-4,-6],update=True)
+                self.directonal_reshape('y')
+            else:
+                self.step_truncate('x',dimension)
+                pass 
 
-        if(self.courrent_node.shape[2]**2<=dimension):
-            self.self_contract([-1,1,-3,-5],[1,-2,-4,-6],update=True)
-            self.directonal_reshape('y')
-        else:
-            self.step_truncate('x',dimension)
-            pass 
+            #y direction 
 
-        #y direction 
-
-        if(self.courrent_node.shape[0]**2<=dimension):
-            self.self_contract([-1,-3,-5,1],[-2,-4,1,-6],update=True)
-            self.directonal_reshape('y')
-        else:
-            self.step_truncate('y',dimension)
+            if(self.courrent_node.shape[0]**2<=dimension):
+                self.self_contract([-1,-3,-5,1],[-2,-4,1,-6],update=True)
+                self.directonal_reshape('y')
+            else:
+                self.step_truncate('y',dimension)
 
 
 
