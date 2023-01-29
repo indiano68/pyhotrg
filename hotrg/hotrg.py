@@ -4,8 +4,6 @@ from ncon import ncon
 import tensorly as tl
 from hotrg.hotrg_tools.matrix import truncate_matrix
 from time import perf_counter
-import psutil
-import os
 
 
 class General_Node:
@@ -239,11 +237,11 @@ class Cross_Node(General_Node):
         for i in range(0,number_of_steps):
             self.self_contract([-1,-3,-5,1],[-2,-4,1,-6])
             self.directonal_reshape('x')
-            # self.factorize()
+            self.factorize()
             self.truncate('x',dimesion)
             self.self_contract([-1,1,-3,-5],[1,-2,-4,-6])
             self.directonal_reshape('y')
-            # self.factorize()
+            self.factorize()
             self.truncate('y',dimesion)
 
 class Square_Node(General_Node):
@@ -339,33 +337,24 @@ class Cross_Node_Optimized(Cross_Node):
 
         
     def step_truncate(self,direction,dimension):
-        process = psutil.Process(os.getpid())
+
         if direction == 'x':
             #just for testing lets keep it in one direction
             tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
             tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
             tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after building A,Q,B')
-            
-            del tensorA,tensorB
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after deleting A,B')
             Qshape =  tensorQ.shape
             tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
             Ul, deltaL, _ = np.linalg.svd(tensorQ)
+
             Utr = np.array(truncate_matrix(Ul, 1, dimension))
             Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after building Ul,Utr')
-            del tensorQ,Ul,Qshape
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after deleting Ul,Q')
             tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
             tensorC = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[1,-3,2,-5]])
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after building B2,C')
-            del tensorB2
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after deleting B2')
-            self.courrent_node = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after building node')
-            del tensorC
-            print(f'Memory usage: {process.memory_info().rss/(1024**3)} Gbytes,after deleting tensorC')
+            newTensor = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
+            # self.courrent_node = ncon([Utr, Utr, self.courrent_node], [
+            #             [1, -3], [2, -4], [-1, -2, 1, 2]])
+            self.courrent_node = newTensor
 
         if direction == 'y':
 
@@ -373,7 +362,6 @@ class Cross_Node_Optimized(Cross_Node):
             tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
             tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
             tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
-            del tensorA,tensorB
 
             #Finding Utr 
             Qshape =  tensorQ.shape
@@ -382,17 +370,11 @@ class Cross_Node_Optimized(Cross_Node):
             Utr = np.array(truncate_matrix(Ul, 1, dimension))
             Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
 
-            del tensorQ,Ul,Qshape
-
             #Recontructing T 
             tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-1],[1,-4,-2,-3]])
-            print(tensorB2.shape,"B2,",tensorB2.dtype)
             tensorC  = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[2,-5,1,-3]])
-
-            del tensorB2
             newTensor = ncon([Utr,tensorC],[[1,2,-2],[-1,-3,-4,1,2]])          
             self.courrent_node =newTensor
-            del newTensor,tensorC
 
         self.transformation_log+=f"Step/Truncation in direction {direction} and D{dimension},new {self.courrent_node.shape}\n"
 
