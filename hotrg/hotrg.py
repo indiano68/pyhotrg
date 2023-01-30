@@ -381,7 +381,7 @@ class Cross_Node_Optimized(Cross_Node):
     def step(self, number_of_steps, dimension):
         for step in range(0,number_of_steps):
             # x direction
-            if(self.courrent_node.shape[2]**2<=dimension):
+            if(self.courrent_node.shape[2]**2>=dimension):
                 self.self_contract([-1,1,-3,-5],[1,-2,-4,-6],update=True)
                 self.directonal_reshape('y')
             else:
@@ -390,7 +390,7 @@ class Cross_Node_Optimized(Cross_Node):
 
             #y direction 
 
-            if(self.courrent_node.shape[0]**2<=dimension):
+            if(self.courrent_node.shape[0]**2>=dimension):
                 self.self_contract([-1,-3,-5,1],[-2,-4,1,-6],update=True)
                 self.directonal_reshape('y')
             else:
