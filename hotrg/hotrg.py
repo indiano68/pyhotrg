@@ -4,24 +4,24 @@ from ncon import ncon
 import tensorly as tl
 from pyhotrg.tools.matrix import truncate_matrix
 from time import perf_counter
+from typing import Callable,Optional, Tuple
 
 
 class General_Node:
     
 
-    def __init__(self,name,generator,*parameters ,verbose = 0):
-        self.transformation_log =  ""
-        self.factor = 0
-        self.unit_step = 1
+    def __init__(self,name:str, generator: Callable[..., np.ndarray],*parameters ,verbose: Optional[bool] = False)->None:
+        self.transformation_log : str =  ""
+        self.factor : float = 0
+        self.unit_step :int = 1
         self.name = name
         self.verbose = verbose 
         self.parameters = parameters 
         self.generate = generator 
         self.courrent_node = self.generate(*self.parameters)
         self.transformation_log+=f"Node Generated with parameter\s {self.parameters} \n"
-        pass
 
-    def renew(self,*parameters):
+    def renew(self,*parameters)->None:
         self.parameters = parameters
         self.original_node = self.generate(*self.parameters)
         self.courrent_node = self.generate(*self.parameters)
@@ -29,7 +29,7 @@ class General_Node:
         self.transformation_log = f"Node renewed with parameter\s {self.parameters} \n"
     
         
-    def self_contract(self,order_1,order_2):
+    def self_contract(self,order_1:list[int],order_2:list[int])->np.ndarray:
 
         if type(order_1)==type(order_2) and  type(order_1) is list:
 
@@ -48,7 +48,7 @@ class General_Node:
         else:
             raise Exception("(Proto) self_contract params must be lists")
 
-    def reshape(self,dim_tuple):
+    def reshape(self,dim_tuple: Tuple[int,...])->np.ndarray:
 
         if type(dim_tuple) == tuple:
             self.courrent_node = self.courrent_node.reshape(dim_tuple)
@@ -58,30 +58,17 @@ class General_Node:
         else:
 
             raise Exception("Argument must be tuple.")
-
-    def truncate(self):
-        pass
-
-    def step(self,number_of_steps,dimension):
-        pass
-
-    def factorize(self):
-        pass
-
-    def factor_update(self,times):
-        pass
-
-    def factor_compute(self):
-        pass
-
     def trace(self):
-        pass 
-
+        pass
+    def step(self, number_of_steps:int,dimesion:int):
+        pass
+    def factor_update(self,times:int):
+        pass
 class Cross_Node(General_Node):
     """Expand general node to allow Xie Type Step and Truncation"""
     """For nodes with for legs of equal order""" 
     unit_step = 4 
-    def truncate(self,direction,dimension):
+    def truncate(self,direction: str, dimension:int):
 
         """assumes initial direction xx'yy'"""
         if type(direction) is str:
@@ -176,14 +163,14 @@ class Cross_Node(General_Node):
             self.courrent_node = self.courrent_node/(10**newFactor)
             self.transformation_log+=f"Factorized: NewFactor e{toString[e+1:]},Total {self.factor}\n"
 
-    def factor_update(self,times):
+    def factor_update(self,times:int):
         # for index in range(0,len(self.factor)):
         #     self.factor[index]*=2
         for i in range(0,times):
             self.factor*=2
         self.transformation_log+=f"Factor Updated, New: {self.factor}\n"       
     
-    def directonal_reshape(self,direction):
+    def directonal_reshape(self,direction:str):
         """Reshape after self cotraction"""
         """assumes xx x'x' yy'"""
         """or xx' yy y'y'"""
@@ -230,7 +217,7 @@ class Cross_Node(General_Node):
 
             raise Exception("direction must be string,'x' or 'y'")
 
-    def step(self, number_of_steps,dimesion):
+    def step(self, number_of_steps:int,dimesion:int):
         # Pre truncation adjustment
         self.truncate('x',dimesion)
         self.truncate('y',dimesion)
@@ -246,7 +233,7 @@ class Cross_Node(General_Node):
 
 class Square_Node(General_Node):
     '''Square Node'''
-    def truncate(self,direction_idx,dimension):
+    def truncate(self,direction_idx:Tuple[int, int],dimension:int)->np.ndarray:
         if self.courrent_node.shape[direction_idx[0]]>dimension and self.courrent_node.shape[direction_idx[0]] == self.courrent_node.shape[direction_idx[1]]:
             unfolded_buffer = np.matrix(tl.unfold(self.courrent_node, direction_idx[0]))
             unfolded_buffer = unfolded_buffer @ unfolded_buffer.getH()
@@ -283,7 +270,7 @@ class Square_Node(General_Node):
         return self.courrent_node
 
 
-    def directional_reshape(self,direction):
+    def directional_reshape(self,direction:str)->np.ndarray:
         shape = self.courrent_node.shape
         if(direction == 'x'):
             self.reshape((shape[0]**2,shape[2]**2,shape[4]**2,shape[6]**2\
@@ -293,11 +280,11 @@ class Square_Node(General_Node):
                         ,shape[4]**2 ,shape[6]**2,shape[8]**2,shape[10]**2))
         return self.courrent_node
 
-    def trace(self):
+    def trace(self)->float:
         trace = ncon([self.courrent_node],[[1,2,1,2,3,4,3,4]])
         return trace
     
-    def step(self, number_of_steps, dimesion):
+    def step(self, number_of_steps: int, dimesion: int)->None:
         for i in range(0,number_of_steps):
             self.self_contract([-1,-3,-5,-7,-9,-10,1,2],[-2,-4,-6,-8,1,2,-11,-12])
             self.directional_reshape('x')
@@ -311,10 +298,10 @@ class Square_Node(General_Node):
 
 class Cross_Node_Optimized(Cross_Node):
 
-    def truncate(self, direction, dimension):
+    def truncate(self, direction:str, dimension:int):
         raise NotImplementedError
     
-    def self_contract(self,order_1,order_2,update = False):
+    def self_contract(self,order_1:list[int],order_2:list[int],update:Optional[bool] = False):
 
         if type(order_1)==type(order_2) and  type(order_1) is list:
 
@@ -336,7 +323,7 @@ class Cross_Node_Optimized(Cross_Node):
             raise Exception("(Proto) self_contract params must be lists")
 
         
-    def step_truncate(self,direction,dimension):
+    def step_truncate(self,direction:str,dimension:int):
 
         if direction == 'x':
             #just for testing lets keep it in one direction
@@ -378,7 +365,7 @@ class Cross_Node_Optimized(Cross_Node):
 
         self.transformation_log+=f"Step/Truncation in direction {direction} and D{dimension},new {self.courrent_node.shape}\n"
 
-    def step(self, number_of_steps, dimension):
+    def step(self, number_of_steps: int, dimension:int):
         for step in range(0,number_of_steps):
             # x direction
             if(self.courrent_node.shape[2]**2<=dimension):
@@ -401,9 +388,9 @@ class Cross_Node_Optimized(Cross_Node):
 class HOTRG_sweep:
     """Class implementation for HOTRG sweep"""
 
-    def __init__(self,node,sweep_range,steps,dimension,output_path=""):
-        self.computed_names = list()
-        self.computed_functions = list() 
+    def __init__(self,node:General_Node,sweep_range:list[float],steps:int,dimension:int,output_path:str=""):
+        self.computed_names:list[str] = list()
+        self.computed_functions:list[Callable] = list() 
         self.node = node
         self.side = np.sqrt(self.node.unit_step**steps)
         self.sweep_range = sweep_range
@@ -422,7 +409,7 @@ class HOTRG_sweep:
             handle.close()
         pass 
 
-    def _log_data(self,param):
+    def _log_data(self,param:float):
         log_str =f"{param} {self.node.trace()} {int(self.node.factor)}"
         for function in self.computed_functions:
             log_str += f" {function(param,self.node.trace(),self.node.factor)}"
@@ -432,7 +419,7 @@ class HOTRG_sweep:
             handle.close()
     
 
-    def add_to_compute(self,name,function):
+    def add_to_compute(self,name:str,function:Callable):
         if type(name) is str and type(function) is types.FunctionType:
             self.computed_names.append(name)
             self.computed_functions.append(function)
@@ -453,7 +440,7 @@ class HOTRG_sweep:
             self._log_data(val)
         print(f"Sweep Duration:{perf_counter()-sweep_time}")
     
-    def calibrate(self,parameter,min_dim,max_dim,steps,output_dir):
+    def calibrate(self,parameter:float,min_dim:int,max_dim:int,steps:int,output_dir:str):
         filename = f"{self.node.name}_S{steps}_P{parameter}_calibration.txt"
         header = f"Parameter: {parameter}\n" \
                  f"Min D: {min_dim}\n" \
