@@ -466,7 +466,6 @@ class HOTRG_sweep:
                 print(self.node.transformation_log)
                 print()
                 self.node.renew(val_2)
-                step_time = perf_counter()
                 self.node.step(self.steps,self.dimension)
                 res_2 = self.compute_logZ()
                 print(self.node.transformation_log)
