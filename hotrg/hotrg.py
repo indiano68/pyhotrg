@@ -391,54 +391,92 @@ class HOTRG_sweep:
     def __init__(self,node:General_Node,sweep_range:list[float],steps:int,dimension:int,output_path:str=""):
         self.computed_names:list[str] = list()
         self.computed_functions:list[Callable] = list() 
-        self.node = node
-        self.side = np.sqrt(self.node.unit_step**steps)
-        self.sweep_range = sweep_range
-        self.steps = steps
-        self.dimension = dimension
+        self.node:General_Node = node
+        self.side:float = np.sqrt(self.node.unit_step**steps)
+        self.sweep_range:list[float] = sweep_range
+        self.steps: int = steps
+        self.dimension:int = dimension
         if output_path =="":
             self.output_path = self.node.name + ".txt"
         else:
             self.output_path = output_path
         pass
 
-    def _log_header(self):
-        header = ["Parameter","Trace","Factor(e)"] + self.computed_names
+    def _log_header(self,method:Optional[str]=None):
+        if method is None:
+            header = ["Parameter","Trace","Factor(e)"]
+        else:
+            header = ["Parameter",method]
+        header += self.computed_names
         with open(self.output_path,"a") as handle:
             handle.write(" ".join(header)+"\n")
             handle.close()
         pass 
 
-    def _log_data(self,param:float):
-        log_str =f"{param} {self.node.trace()} {int(self.node.factor)}"
+    def _log_data(self,param:float ,val:float, method: Optional[str]=None):
+        if method is None: 
+            log_str =f"{param} {val} {int(self.node.factor)}"
+        else:
+            log_str =f"{param} {val}"
+
         for function in self.computed_functions:
-            log_str += f" {function(param,self.node.trace(),self.node.factor)}"
+            log_str += f" {function(param,val,self.node.factor)}"
+
         with open(self.output_path,"a") as handle:
             # handle.write(f"{param} {self.node.trace()}E{int(self.node.factor)}\n")
             handle.write(log_str+"\n")
             handle.close()
-    
 
-    def add_to_compute(self,name:str,function:Callable):
+    def add_to_compute(self,name:str,function:Callable[[float,float,float],float]):
         if type(name) is str and type(function) is types.FunctionType:
             self.computed_names.append(name)
             self.computed_functions.append(function)
         else:
             raise Exception("(Proto) wrong arguments passed")
 
+    def compute_logZ(self): 
+        sites = self.node.unit_step ** self.steps
+        return (np.log(self.node.trace())+self.node.factor*np.log(10))/(sites)
 
 
-    def start(self):
-        self._log_header()
+    def start(self,method: Optional[str] = None, delta: Optional[float]=None):
+        self._log_header(method=method)
         sweep_time = perf_counter()
-        for val in self.sweep_range:
-            self.node.renew(val)
-            step_time = perf_counter()
-            self.node.step(self.steps,self.dimension)
-            print(self.node.transformation_log)
-            print(f"Step Duration:{perf_counter()-step_time}")
-            self._log_data(val)
+        if method != "fd":
+            for param in self.sweep_range:
+                self.node.renew(param)
+                step_time = perf_counter()
+                self.node.step(self.steps,self.dimension)
+                print(self.node.transformation_log)
+                print(f"Step Duration:{perf_counter()-step_time}")
+                if method is None:
+                    self._log_data(param,self.node.trace())
+                if method == "lnZ":
+                    self._log_data(param,self.compute_logZ(),method=method)
+        else:
+            if delta is None:
+                delta = 0.001
+            for param in self.sweep_range:
+                val_1= param-delta/2
+                val_2= param+delta/2
+                self.node.renew(val_1)
+                step_time = perf_counter()
+                self.node.step(self.steps,self.dimension)
+                res_1 = self.compute_logZ()
+                print(self.node.transformation_log)
+                print()
+                self.node.renew(val_2)
+                step_time = perf_counter()
+                self.node.step(self.steps,self.dimension)
+                res_2 = self.compute_logZ()
+                print(self.node.transformation_log)
+                print()
+                print(f"Step Duration:{perf_counter()-step_time}")
+                self._log_data(param,(res_2-res_1)/delta,method=method)
+
+
         print(f"Sweep Duration:{perf_counter()-sweep_time}")
+    
     
     def calibrate(self,parameter:float,min_dim:int,max_dim:int,steps:int,output_dir:str):
         filename = f"{self.node.name}_S{steps}_P{parameter}_calibration.txt"
