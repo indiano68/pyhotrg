@@ -326,35 +326,52 @@ class Cross_Node_Optimized(Cross_Node):
     def step_truncate(self,direction:str,dimension:int):
 
         if direction == 'x':
-            #just for testing lets keep it in one direction
+            # Building Upper U and it's SV 
             tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
             tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
             tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
             Qshape =  tensorQ.shape
             tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
-            Ul, deltaL, _ = np.linalg.svd(tensorQ)
+            Uu, deltaU, _ = np.linalg.svd(tensorQ)
 
-            Utr = np.array(truncate_matrix(Ul, 1, dimension))
+            # Building Upper U and it's SV             
+            tensorA = self.self_contract([1,-3,2,-1],[1,-4,2,-2])
+            tensorB = self.self_contract( [-3,1,2,-1],[-4,1,2,-2])
+            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+            #Qshape =  tensorQ.shape
+            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+            Ud, deltaD, _ = np.linalg.svd(tensorQ)
+            if sum(deltaU[dimension:-1])<sum(deltaD[dimension:-1]):
+                Utr = np.array(truncate_matrix(Uu, 1, dimension))
+            else:
+                Utr = np.array(truncate_matrix(Ud, 1, dimension))
             Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
             tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
             tensorC = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[1,-3,2,-5]])
             newTensor = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
-            # self.courrent_node = ncon([Utr, Utr, self.courrent_node], [
-            #             [1, -3], [2, -4], [-1, -2, 1, 2]])
             self.courrent_node = newTensor
 
         if direction == 'y':
 
-            #Building Q for UL 
+            # Building Left U and it's SV 
             tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
             tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
-            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
-
-            #Finding Utr 
+            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]]) 
             Qshape =  tensorQ.shape
             tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
             Ul, deltaL, _ = np.linalg.svd(tensorQ)
-            Utr = np.array(truncate_matrix(Ul, 1, dimension))
+            # Building Right U and it's SV 
+            tensorA = self.self_contract([1,-1,2,-3],[1,-2,2,-4])
+            tensorB = self.self_contract([1,-1,-3,2],[1,-2,-4,2])
+            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+
+            Qshape =  tensorQ.shape
+            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+            Ur, deltaR, _ = np.linalg.svd(tensorQ)
+            if sum(deltaR[dimension:-1])<sum(deltaL[dimension:-1]):
+                Utr = np.array(truncate_matrix(Ur, 1, dimension))
+            else:
+                Utr = np.array(truncate_matrix(Ul, 1, dimension))
             Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
 
             #Recontructing T 
