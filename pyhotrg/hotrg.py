@@ -60,7 +60,7 @@ class General_Node:
             raise Exception("Argument must be tuple.")
     def trace(self):
         pass
-    def step(self, number_of_steps:int,dimesion:int):
+    def step(self, number_of_steps:int,dimesion:int,t_method: Optional[str]=None)->None:
         pass
     def factor_update(self,times:int):
         pass
@@ -217,7 +217,7 @@ class Cross_Node(General_Node):
 
             raise Exception("direction must be string,'x' or 'y'")
 
-    def step(self, number_of_steps:int,dimesion:int):
+    def step(self, number_of_steps:int,dimesion:int,t_method: Optional[str]=None)->None:
         # Pre truncation adjustment
         self.truncate('x',dimesion)
         self.truncate('y',dimesion)
@@ -284,7 +284,7 @@ class Square_Node(General_Node):
         trace = ncon([self.courrent_node],[[1,2,1,2,3,4,3,4]])
         return trace
     
-    def step(self, number_of_steps: int, dimesion: int)->None:
+    def step(self, number_of_steps: int, dimesion: int,t_method: Optional[str]=None)->None:
         for i in range(0,number_of_steps):
             self.self_contract([-1,-3,-5,-7,-9,-10,1,2],[-2,-4,-6,-8,1,2,-11,-12])
             self.directional_reshape('x')
@@ -323,73 +323,120 @@ class Cross_Node_Optimized(Cross_Node):
             raise Exception("(Proto) self_contract params must be lists")
 
         
-    def step_truncate(self,direction:str,dimension:int):
+    def step_truncate(self,direction:str,dimension:int,t_method:Optional[str]=None)->None:
+        if t_method is None or t_method == "fb":
+            if direction == 'x':
+                # Building Upper U and it's SV 
+                tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
+                tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
+                tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+                Qshape =  tensorQ.shape
+                tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                Uu, deltaU, _ = np.linalg.svd(tensorQ)
 
-        if direction == 'x':
-            # Building Upper U and it's SV 
-            tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
-            tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
-            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
-            Qshape =  tensorQ.shape
-            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
-            Uu, deltaU, _ = np.linalg.svd(tensorQ)
+                # Building Upper U and it's SV             
+                tensorA = self.self_contract([1,-3,2,-1],[1,-4,2,-2])
+                tensorB = self.self_contract( [-3,1,2,-1],[-4,1,2,-2])
+                tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+                #Qshape =  tensorQ.shape
+                tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                Ud, deltaD, _ = np.linalg.svd(tensorQ)
+                if sum(deltaU[dimension:-1])<sum(deltaD[dimension:-1]):
+                    Utr = np.array(truncate_matrix(Uu, 1, dimension))
+                else:
+                    Utr = np.array(truncate_matrix(Ud, 1, dimension))
+                Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
+                tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
+                tensorC = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[1,-3,2,-5]])
+                newTensor = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
+                self.courrent_node = newTensor
 
-            # Building Upper U and it's SV             
-            tensorA = self.self_contract([1,-3,2,-1],[1,-4,2,-2])
-            tensorB = self.self_contract( [-3,1,2,-1],[-4,1,2,-2])
-            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
-            #Qshape =  tensorQ.shape
-            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
-            Ud, deltaD, _ = np.linalg.svd(tensorQ)
-            if sum(deltaU[dimension:-1])<sum(deltaD[dimension:-1]):
-                Utr = np.array(truncate_matrix(Uu, 1, dimension))
-            else:
-                Utr = np.array(truncate_matrix(Ud, 1, dimension))
-            Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
-            tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
-            tensorC = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[1,-3,2,-5]])
-            newTensor = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
-            self.courrent_node = newTensor
+            if direction == 'y':
 
-        if direction == 'y':
+                # Building Left U and it's SV 
+                tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
+                tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
+                tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]]) 
+                Qshape =  tensorQ.shape
+                tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                Ul, deltaL, _ = np.linalg.svd(tensorQ)
+                # Building Right U and it's SV 
+                tensorA = self.self_contract([1,-1,2,-3],[1,-2,2,-4])
+                tensorB = self.self_contract([1,-1,-3,2],[1,-2,-4,2])
+                tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
 
-            # Building Left U and it's SV 
-            tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
-            tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
-            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]]) 
-            Qshape =  tensorQ.shape
-            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
-            Ul, deltaL, _ = np.linalg.svd(tensorQ)
-            # Building Right U and it's SV 
-            tensorA = self.self_contract([1,-1,2,-3],[1,-2,2,-4])
-            tensorB = self.self_contract([1,-1,-3,2],[1,-2,-4,2])
-            tensorQ = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+                Qshape =  tensorQ.shape
+                tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                Ur, deltaR, _ = np.linalg.svd(tensorQ)
+                if sum(deltaR[dimension:-1])<sum(deltaL[dimension:-1]):
+                    Utr = np.array(truncate_matrix(Ur, 1, dimension))
+                else:
+                    Utr = np.array(truncate_matrix(Ul, 1, dimension))
+                Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
 
-            Qshape =  tensorQ.shape
-            tensorQ = tensorQ.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
-            Ur, deltaR, _ = np.linalg.svd(tensorQ)
-            if sum(deltaR[dimension:-1])<sum(deltaL[dimension:-1]):
-                Utr = np.array(truncate_matrix(Ur, 1, dimension))
-            else:
-                Utr = np.array(truncate_matrix(Ul, 1, dimension))
-            Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
+                #Recontructing T 
+                tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-1],[1,-4,-2,-3]])
+                tensorC  = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[2,-5,1,-3]])
+                newTensor = ncon([Utr,tensorC],[[1,2,-2],[-1,-3,-4,1,2]])          
+                self.courrent_node =newTensor
 
-            #Recontructing T 
-            tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-1],[1,-4,-2,-3]])
-            tensorC  = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[2,-5,1,-3]])
-            newTensor = ncon([Utr,tensorC],[[1,2,-2],[-1,-3,-4,1,2]])          
-            self.courrent_node =newTensor
+        elif t_method == "SuperQ":
+                if direction == 'x':
+                    # Building Upper Q and it's SV 
+                    tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
+                    tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
+                    tensorQu = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+                    Qshape =  tensorQu.shape
+                    tensorQu = tensorQu.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                    # Building Upper Q and it's SV             
+                    tensorA = self.self_contract([1,-3,2,-1],[1,-4,2,-2])
+                    tensorB = self.self_contract( [-3,1,2,-1],[-4,1,2,-2])
+                    tensorQd = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+                    tensorQd = tensorQd.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                    SuperQ = tensorQu +tensorQd
+                    U,_,_ = np.linalg.svd(SuperQ)
+                    Utr = truncate_matrix(U, 1, dimension)
+                    Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
+                    tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
+                    tensorC = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[1,-3,2,-5]])
+                    newTensor = ncon([Utr,tensorC],[[1,2,-4],[-1,-3,-2,1,2]])
+                    self.courrent_node = newTensor
+
+                if direction == 'y':
+
+                    # Building Left Qf and it's SV 
+                    tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
+                    tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
+                    tensorQf = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]]) 
+                    Qshape =  tensorQf.shape
+                    tensorQf = tensorQf.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                    # Building Right Qb and it's SV 
+                    tensorA = self.self_contract([1,-1,2,-3],[1,-2,2,-4])
+                    tensorB = self.self_contract([1,-1,-3,2],[1,-2,-4,2])
+                    tensorQb = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
+                    tensorQb = tensorQb.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
+                    SuperQ = tensorQf + tensorQb
+                    U,_,_ = np.linalg.svd(SuperQ)
+                    Utr = truncate_matrix(U, 1, dimension)
+                    Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
+                    #Recontructing T 
+                    tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-1],[1,-4,-2,-3]])
+                    tensorC  = ncon([tensorB2,self.courrent_node],[[-1,-2,1,-4,2],[2,-5,1,-3]])
+                    newTensor = ncon([Utr,tensorC],[[1,2,-2],[-1,-3,-4,1,2]])          
+                    self.courrent_node =newTensor
+        else:
+            raise NotImplementedError 
 
         self.transformation_log+=f"Step/Truncation in direction {direction} and D{dimension},new {self.courrent_node.shape}\n"
 
-    def step(self, number_of_steps: int, dimension:int):
+    def step(self, number_of_steps: int, dimension:int,t_method: Optional[str]=None):
         for step in range(0,number_of_steps):
             # x direction
             if(self.courrent_node.shape[2]**2<=dimension):
                 self.self_contract([-1,1,-3,-5],[1,-2,-4,-6],update=True)
                 self.directonal_reshape('y')
             else:
-                self.step_truncate('x',dimension)
+                self.step_truncate('x',dimension,t_method=t_method)
                 pass 
 
             #y direction 
@@ -398,14 +445,14 @@ class Cross_Node_Optimized(Cross_Node):
                 self.self_contract([-1,-3,-5,1],[-2,-4,1,-6],update=True)
                 self.directonal_reshape('x')
             else:
-                self.step_truncate('y',dimension)
+                self.step_truncate('y',dimension,t_method=t_method)
 
 
 
 class HOTRG_sweep:
     """Class implementation for HOTRG sweep"""
 
-    def __init__(self,node:General_Node,sweep_range:list[float],steps:int,dimension:int,output_path:str=""):
+    def __init__(self,node:General_Node,sweep_range:list[float],steps:int,dimension:int,t_method:Optional[str]=None,output_path:str=""):
         self.computed_names:list[str] = list()
         self.computed_functions:list[Callable] = list() 
         self.node:General_Node = node
@@ -413,6 +460,7 @@ class HOTRG_sweep:
         self.sweep_range:list[float] = sweep_range
         self.steps: int = steps
         self.dimension:int = dimension
+        self.t_method = t_method
         if output_path =="":
             self.output_path = self.node.name + ".txt"
         else:
@@ -463,7 +511,7 @@ class HOTRG_sweep:
             for param in self.sweep_range:
                 self.node.renew(param)
                 step_time = perf_counter()
-                self.node.step(self.steps,self.dimension)
+                self.node.step(self.steps,self.dimension,t_method=self.t_method)
                 print(self.node.transformation_log)
                 print(f"Step Duration:{perf_counter()-step_time}")
                 if method is None:
@@ -478,12 +526,12 @@ class HOTRG_sweep:
                 val_2= param+delta/2
                 self.node.renew(val_1)
                 step_time = perf_counter()
-                self.node.step(self.steps,self.dimension)
+                self.node.step(self.steps,self.dimension,t_method=self.t_method)
                 res_1 = self.compute_logZ()
                 print(self.node.transformation_log)
                 print()
                 self.node.renew(val_2)
-                self.node.step(self.steps,self.dimension)
+                self.node.step(self.steps,self.dimension,t_method=self.t_method)
                 res_2 = self.compute_logZ()
                 print(self.node.transformation_log)
                 print()
