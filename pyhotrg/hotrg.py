@@ -19,14 +19,14 @@ class General_Node:
         self.parameters = parameters 
         self.generate = generator 
         self.courrent_node:np.ndarray = self.generate(*self.parameters)
-        self.transformation_log+=f"Node Generated with parameter\s {self.parameters} \n"
+        self.transformation_log+=f"Node Generated with parameter\\s {self.parameters} \n"
 
     def renew(self,*parameters)->None:
         self.parameters = parameters
         self.original_node = self.generate(*self.parameters)
         self.courrent_node = self.generate(*self.parameters)
         self.factor = 0
-        self.transformation_log = f"Node renewed with parameter\s {self.parameters} \n"
+        self.transformation_log = f"Node renewed with parameter\\s {self.parameters} \n"
     
         
     def self_contract(self,order_1:list[int],order_2:list[int])->np.ndarray:
@@ -58,12 +58,12 @@ class General_Node:
         else:
 
             raise Exception("Argument must be tuple.")
-    def trace(self):
-        pass
+    def trace(self)->float:
+        raise NotImplementedError
     def step(self, number_of_steps:int,dimesion:int,t_method: Optional[str]=None)->None:
-        pass
+        raise NotImplementedError
     def factor_update(self,times:int):
-        pass
+        raise NotImplementedError
 class Cross_Node(General_Node):
     """Expand general node to allow Xie Type Step and Truncation"""
     """For nodes with for legs of equal order""" 
@@ -281,7 +281,7 @@ class Square_Node(General_Node):
         return self.courrent_node
 
     def trace(self)->float:
-        trace = ncon([self.courrent_node],[[1,2,1,2,3,4,3,4]])
+        trace = ncon([self.courrent_node],[[1,2,1,2,3,4,3,4]])[0]
         return trace
     
     def step(self, number_of_steps: int, dimesion: int,t_method: Optional[str]=None)->None:
@@ -394,7 +394,7 @@ class Cross_Node_Optimized(Cross_Node):
                     tensorQd = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
                     tensorQd = tensorQd.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
                     SuperQ = tensorQu +tensorQd
-                    U,_,_ = np.linalg.svd(SuperQ)
+                    U,_,_ = np.linalg.svd(SuperQ,hermitian=True)
                     Utr = truncate_matrix(U, 1, dimension)
                     Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
                     tensorB2 = ncon([Utr,self.courrent_node],[[1,-5,-2],[-1,-3,1,-4]]) 
@@ -416,7 +416,7 @@ class Cross_Node_Optimized(Cross_Node):
                     tensorQb = ncon([tensorA,tensorB],[[-1,-3,1,2],[-2,-4,1,2]])
                     tensorQb = tensorQb.reshape((Qshape[0]*Qshape[1],Qshape[2]*Qshape[3]))
                     SuperQ = tensorQf + tensorQb
-                    U,_,_ = np.linalg.svd(SuperQ)
+                    U,_,_ = np.linalg.svd(SuperQ, hermitian= True)
                     Utr = truncate_matrix(U, 1, dimension)
                     Utr = Utr.reshape((Qshape[0],Qshape[1],dimension))
                     #Recontructing T 
