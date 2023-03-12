@@ -18,7 +18,7 @@ class General_Node:
         self.verbose = verbose 
         self.parameters = parameters 
         self.generate = generator 
-        self.courrent_node = self.generate(*self.parameters)
+        self.courrent_node:np.ndarray = self.generate(*self.parameters)
         self.transformation_log+=f"Node Generated with parameter\s {self.parameters} \n"
 
     def renew(self,*parameters)->None:
