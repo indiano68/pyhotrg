@@ -154,9 +154,11 @@ class Cross_Node(General_Node):
     def factorize(self):
         # Prototype for testing 
         # Factor out just powers of ten, approach must be discussed
-        if (self.courrent_node[0, 0, 0, 0] > 1e+2 or self.courrent_node[0, 0, 0, 0] < 1e-2):
-
-            toString = np.format_float_scientific(self.courrent_node[0, 0, 0, 0])
+        #if (self.courrent_node[0, 0, 0, 0] > 1e+2 or self.courrent_node[0, 0, 0, 0] < 1e-2):
+        f_norm = np.linalg.norm(self.courrent_node)
+        if (f_norm > 1e+5):
+            # toString = np.format_float_scientific(self.courrent_node[0, 0, 0, 0])
+            toString = np.format_float_scientific(f_norm)
             e = toString.find("e")
             newFactor = float(toString[e+1:])
             self.factor+= newFactor
@@ -308,10 +310,6 @@ class Cross_Node_Optimized(Cross_Node):
             if len(order_1)==len(order_2) and len(order_1) == len(self.courrent_node.shape):
 
                 newNode = ncon([self.courrent_node,self.courrent_node],[order_1,order_2])
-                # Prototyping : New self contract does not update node
-                # for el in order_1:
-                #     if el>0: 
-                #         self.factor_update(1)
                 if update:
                     self.courrent_node = newNode
                     self.transformation_log+=f"Contraction with ordering {order_1} {order_2},new {self.courrent_node.shape}\n"
@@ -438,14 +436,15 @@ class Cross_Node_Optimized(Cross_Node):
             else:
                 self.step_truncate('x',dimension,t_method=t_method)
                 pass 
-
+            self.factor_update(1)
             #y direction 
-
             if(self.courrent_node.shape[0]**2<=dimension):
                 self.self_contract([-1,-3,-5,1],[-2,-4,1,-6],update=True)
                 self.directonal_reshape('x')
             else:
                 self.step_truncate('y',dimension,t_method=t_method)
+            self.factor_update(1)
+            self.factorize()
 
 
 
@@ -558,8 +557,9 @@ class HOTRG_sweep:
             print(self.node.transformation_log)
             print(f"Step Duration:{perf_counter()-step_time}\nD:{D}")
             log_str =f"{D}"
-            for function in self.computed_functions:
-                log_str += f" {function(parameter,self.node.trace(),self.node.factor)}"
+            # for function in self.computed_functions:
+            #     log_str += f" {function(parameter,self.node.trace(),self.node.factor)}"
+            log_str += f" {self.compute_logZ()}"
             with open(output_dir+filename,"a") as handle:
                 handle.write(log_str+"\n")
                 handle.close()    
