@@ -9,19 +9,20 @@ from typing import Callable,Optional, Tuple
 
 class General_Node:
     
-
+    '''Abstract class that generaly defines an hypercubic tensor network'''
     def __init__(self,name:str, generator: Callable[..., np.ndarray],*parameters ,verbose: Optional[bool] = False)->None:
-        self.transformation_log : str =  ""
-        self.factor : float = 0
-        self.unit_step :int = 1
-        self.name = name
-        self.verbose = verbose 
-        self.parameters = parameters 
-        self.generate = generator 
-        self.courrent_node:np.ndarray = self.generate(*self.parameters)
+        self.transformation_log : str =  "" #log of transformation made to the fundamental tensor
+        self.factor : float = 0 # place older for tensor factorization
+        self.unit_step :int = 1 # of lattices contracted upun network renormalization
+        self.name = name # a lable for the network
+        self.verbose = verbose # needs to be furter implemented
+        self.parameters = parameters # needs to be furter implemented
+        self.generate = generator # function that returns the fundamental tensor of the network for different parameters
+        self.courrent_node:np.ndarray = self.generate(*self.parameters) # the fundamental tensor 
         self.transformation_log+=f"Node Generated with parameter\\s {self.parameters} \n"
 
     def renew(self,*parameters)->None:
+        '''Regenerate the fundamental tensor of the network with new parameters'''
         self.parameters = parameters
         self.original_node = self.generate(*self.parameters)
         self.courrent_node = self.generate(*self.parameters)
@@ -30,7 +31,7 @@ class General_Node:
     
         
     def self_contract(self,order_1:list[int],order_2:list[int])->np.ndarray:
-
+        '''Handles the contraction of the Fundamental tensor with himself along a direction'''
         if type(order_1)==type(order_2) and  type(order_1) is list:
 
             if len(order_1)==len(order_2) and len(order_1) == len(self.courrent_node.shape):
@@ -49,7 +50,7 @@ class General_Node:
             raise Exception("(Proto) self_contract params must be lists")
 
     def reshape(self,dim_tuple: Tuple[int,...])->np.ndarray:
-
+        '''Reshape the fundamental tensor'''
         if type(dim_tuple) == tuple:
             self.courrent_node = self.courrent_node.reshape(dim_tuple)
             self.transformation_log+=f"Rehsaping with dimentions {dim_tuple},new {self.courrent_node.shape}\n"
@@ -64,9 +65,11 @@ class General_Node:
         raise NotImplementedError
     def factor_update(self,times:int):
         raise NotImplementedError
+
+
 class Cross_Node(General_Node):
-    """Expand general node to allow Xie Type Step and Truncation"""
-    """For nodes with for legs of equal order""" 
+
+    '''Naive Hotrg algorithm for 2-dimensional equilateral hypercubic tenso network''' 
     unit_step = 4 
     def truncate(self,direction: str, dimension:int):
 
@@ -234,7 +237,7 @@ class Cross_Node(General_Node):
             self.truncate('y',dimesion)
 
 class Square_Node(General_Node):
-    '''Square Node'''
+    '''Prototype...'''
     def truncate(self,direction_idx:Tuple[int, int],dimension:int)->np.ndarray:
         if self.courrent_node.shape[direction_idx[0]]>dimension and self.courrent_node.shape[direction_idx[0]] == self.courrent_node.shape[direction_idx[1]]:
             unfolded_buffer = np.matrix(tl.unfold(self.courrent_node, direction_idx[0]))
@@ -299,7 +302,7 @@ class Square_Node(General_Node):
 
 
 class Cross_Node_Optimized(Cross_Node):
-
+    '''Optimazed HOTRG algorithm for 2dimensional Hypercubic tensor networks as described in the thesis,alg.4'''
     def truncate(self, direction:str, dimension:int):
         raise NotImplementedError
     
@@ -323,6 +326,7 @@ class Cross_Node_Optimized(Cross_Node):
         
     def step_truncate(self,direction:str,dimension:int,t_method:Optional[str]=None)->None:
         if t_method is None or t_method == "fb":
+            '''Like algorithm 2 and 3 but with xie truncation'''
             if direction == 'x':
                 # Building Upper U and it's SV 
                 tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
@@ -380,6 +384,7 @@ class Cross_Node_Optimized(Cross_Node):
 
         elif t_method == "SuperQ":
                 if direction == 'x':
+                    '''Algorithm 2'''
                     # Building Upper Q and it's SV 
                     tensorA = self.self_contract([1,-3,-1,2],[1,-4,-2,2])
                     tensorB = self.self_contract( [-3,1,-1,2],[-4,1,-2,2])
@@ -401,7 +406,7 @@ class Cross_Node_Optimized(Cross_Node):
                     self.courrent_node = newTensor
 
                 if direction == 'y':
-
+                    '''Algorithm 3'''
                     # Building Left Qf and it's SV 
                     tensorA = self.self_contract([-1,1,2,-3],[-2,1,2,-4])
                     tensorB = self.self_contract([-1,1,-3,2],[-2,1,-4,2])
@@ -428,6 +433,7 @@ class Cross_Node_Optimized(Cross_Node):
         self.transformation_log+=f"Step/Truncation in direction {direction} and D{dimension},new {self.courrent_node.shape}\n"
 
     def step(self, number_of_steps: int, dimension:int,t_method: Optional[str]=None):
+        '''Algorithm 4'''
         for step in range(0,number_of_steps):
             # x direction
             if(self.courrent_node.shape[2]**2<=dimension):
